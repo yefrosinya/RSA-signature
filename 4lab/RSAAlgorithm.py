@@ -43,44 +43,7 @@ def findPrimeDividers(p):
         dividers.append(p)
     return dividers
 
-def findPrimitiveRoots(p):
-    counter = 0
-    dividers = findPrimeDividers(p - 1)
-    roots = []
-    for g in range(2, p):
-        isPrimitiveRoot = True
-        for qi in dividers:
-            temp = pow(g, (p - 1) // qi, p)
-            if temp == 1:
-                isPrimitiveRoot = False
-                break
-        if isPrimitiveRoot:
-            roots.append(g)
-            counter += 1
-    print("Количество первообразных: ", counter, end="\n")
-    return roots
-
-def calculateY(p, x, g):
-    return pow(g, x, p)
-
-def ciphering(g, k, p, y, plaintext):
-    a = pow(g, k, p)
-    y_pow_k = pow(y, k, p)
-    encrypted = [(a, (y_pow_k * byte) % p) for byte in plaintext]
-    return encrypted
-
-
-def deciphering(p, x, encrypted):
-    decrypted = []
-    p_minus_1 = p - 1
-    for a, b in encrypted:
-        s = pow(a, x, p)
-        s_inv = pow(s, p_minus_1 - 1, p)
-        m = (b * s_inv) % p
-        decrypted.append(m)
-    return decrypted
-
-def fast_pow(base, exponent, modulus):
+def fastPow(base, exponent, modulus):
     result = 1
     base = base % modulus
     while exponent > 0:
@@ -103,11 +66,5 @@ def modinv(a, m):
         raise ValueError("Обратного элемента не существует")
     return x % m
 
-def decipher(p, x, encrypted):
-    decrypted = []
-    for a, b in encrypted:
-        s = pow(a, x, p)
-        s_inv = modinv(s, p)
-        m = (b * s_inv) % p
-        decrypted.append(m)
-    return decrypted
+def getHash(h, m, n):
+    return pow(h + m, 2, n)
