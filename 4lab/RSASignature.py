@@ -92,29 +92,36 @@ class RSASignature:
         ttk.Button(frame, text="Выбрать файл", command=self.selectEncryptFile).grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Button(frame, text="Подписать", command=self.signFile).grid(row=3, column=0, columnspan=3, pady=10)
+
         ttk.Label(frame, text="Исходный текст:").grid(row=4, column=0, padx=2, pady=5, sticky='w')
+        ttk.Label(frame, text="Хэш-сообщение:").grid(row=4, column=2, padx=2, pady=5, sticky='w')
 
-        plainFrame = ttk.Frame(frame)
-        plainFrame.grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky='nsew')
+        textsFrame = tk.Frame(frame)
+        textsFrame.grid(row=5, column=0, columnspan=6, padx=5, pady=5, sticky="ew")
 
-        frame.grid_rowconfigure(5, weight=1)
-        frame.grid_columnconfigure(0, weight=1)
+        plainFrame = tk.Frame(textsFrame)
+        plainFrame.pack(side="left", fill="both", expand=True)
 
         plainScroll = tk.Scrollbar(plainFrame, orient="vertical")
         self.plainText = tk.Text(plainFrame, height=10, width=40, state='disabled', yscrollcommand=plainScroll.set)
         plainScroll.config(command=self.plainText.yview)
 
-        self.plainText.grid(row=0, column=0, sticky='nsew')
-        plainScroll.grid(row=0, column=1, sticky='ns')
+        self.plainText.pack(side="left", fill="both", expand=True)
+        plainScroll.pack(side="right", fill="y")
 
-        plainFrame.grid_rowconfigure(0, weight=1)
-        plainFrame.grid_columnconfigure(0, weight=1)
+        hashFrame = tk.Frame(textsFrame)
+        hashFrame.pack(side="right", fill="both", expand=True)
 
-        self.HLabel = ttk.Label(frame, text="")
-        self.HLabel.grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        hashScroll = tk.Scrollbar(hashFrame, orient="vertical")
+        self.hashText = tk.Text(hashFrame, height=10, width=40, state='disabled',
+                                   yscrollcommand=hashScroll.set)
+        hashScroll.config(command=self.hashText.yview)
 
-        self.SLabel = ttk.Label(frame, text="")
-        self.SLabel.grid(row=7, column=0, padx=5, pady=5, sticky='w')
+        self.hashText.pack(side="left", fill="both", expand=True)
+        hashScroll.pack(side="right", fill="y")
+
+        self.ResultLabel = ttk.Label(frame, text="")
+        self.ResultLabel.grid(row=6, column=0, padx=5, pady=5, sticky='w')
 
     def checkPrime(self, param_str):
         try:
@@ -197,13 +204,18 @@ class RSASignature:
 
             n = int(self.p.get()) * int(self.q.get())
             h = 100
+            hashMessage = []
             for byte in plaintext:
                 result = pow(h + byte, 2, n)
                 h  = result
+                hashMessage.append(result)
             self.h.set(h)
-            self.HLabel.config(text=f"h(M) = {h}")
             self.S = str(pow(h, int(self.d.get()), int(self.r.get())))
-            self.SLabel.config(text=f"S = {self.S}")
+            self.ResultLabel.config(text=f"h(M) = {h}; S = {self.S}")
+            self.hashText.configure(state='normal')
+            self.hashText.delete("1.0", tk.END)
+            self.hashText.insert(tk.END, " ".join(map(str, hashMessage)))
+            self.hashText.configure(state='disabled')
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка: {e}")
 
