@@ -5,10 +5,11 @@ import RSAAlgorithm
 
 class RSASignature:
     def __init__(self, root):
-        self.save_format = None
+        self.hashMessage = None
+        self.saveFormat = None
         self.root = root
         self.root.title("Цифровая подпись RSA")
-        self.root.geometry("670x370")
+        self.root.geometry("670x400")
 
         self.p = tk.StringVar()
         self.q = tk.StringVar()
@@ -31,6 +32,9 @@ class RSASignature:
         signatureFrame = ttk.Frame(notebook)
         notebook.add(signatureFrame, text="Подпись")
         self.setupSignatureTab(signatureFrame)
+        checkFrame = ttk.Frame(notebook)
+        notebook.add(checkFrame, text="Проверка")
+        self.setupCheckTab(checkFrame)
 
     def setupParamsTab(self, frame):
         def validate_number_input(new_value):
@@ -89,7 +93,7 @@ class RSASignature:
 
     def setupSignatureTab(self, frame):
         ttk.Label(frame, text="Файл:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
-        ttk.Button(frame, text="Выбрать файл", command=self.selectEncryptFile).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Button(frame, text="Выбрать файл", command=lambda:self.selectFile(0)).grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Button(frame, text="Подписать", command=self.signFile).grid(row=3, column=0, columnspan=3, pady=10)
 
@@ -122,6 +126,55 @@ class RSASignature:
 
         self.ResultLabel = ttk.Label(frame, text="")
         self.ResultLabel.grid(row=6, column=0, padx=5, pady=5, sticky='w')
+        saveFrame = tk.Frame(frame)
+        saveFrame.grid(row=7, column=0, columnspan=3, pady=10)
+
+        ttk.Label(saveFrame, text="Сохранить как:").pack(side="left", padx=5)
+
+        self.saveFormat = tk.StringVar()
+        format_combobox = ttk.Combobox(saveFrame, textvariable=self.saveFormat, values=["txt"],
+                                       state='readonly', width=8)
+        format_combobox.current(0)
+        format_combobox.pack(side="left", padx=5)
+
+        ttk.Button(saveFrame, text="Сохранить", command=self.saveSigned).pack(side="left", padx=5)
+
+    def setupCheckTab(self, frame):
+        ttk.Label(frame, text="Файл:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        ttk.Button(frame, text="Выбрать файл", command=lambda:self.selectFile(1)).grid(row=0, column=1, padx=5, pady=5)
+
+        ttk.Button(frame, text="Проверить", command=self.checkFile).grid(row=3, column=0, columnspan=3, pady=10)
+
+        ttk.Label(frame, text="Сообщение:").grid(row=4, column=0, padx=2, pady=5, sticky='w')
+        ttk.Label(frame, text="Проверка:").grid(row=4, column=2, padx=2, pady=5, sticky='w')
+
+        textsFrameSign = tk.Frame(frame)
+        textsFrameSign.grid(row=5, column=0, columnspan=6, padx=5, pady=5, sticky="ew")
+
+        plainFrameSign = tk.Frame(textsFrameSign)
+        plainFrameSign.pack(side="left", fill="both", expand=True)
+
+        plainScrollSign = tk.Scrollbar(plainFrameSign, orient="vertical")
+        self.plainTextSign = tk.Text(plainFrameSign, height=10, width=40, state='disabled', yscrollcommand=plainScrollSign.set)
+        plainScrollSign.config(command=self.plainTextSign.yview)
+
+        self.plainTextSign.pack(side="left", fill="both", expand=True)
+        plainScrollSign.pack(side="right", fill="y")
+
+        resultFrameSign = tk.Frame(textsFrameSign)
+        resultFrameSign.pack(side="right", fill="both", expand=True)
+
+        resultScrollSign = tk.Scrollbar(resultFrameSign, orient="vertical")
+        self.resultTextSign = tk.Text(resultFrameSign, height=10, width=40, state='disabled',
+                                yscrollcommand=resultScrollSign.set)
+        resultScrollSign.config(command=self.resultTextSign.yview)
+
+        self.resultTextSign.pack(side="left", fill="both", expand=True)
+        resultScrollSign.pack(side="right", fill="y")
+
+        self.ResultLabelSign = ttk.Label(frame, text="")
+        self.ResultLabelSign.grid(row=6, column=0, padx=5, pady=5, sticky='w')
+
 
     def checkPrime(self, param_str):
         try:
@@ -135,6 +188,7 @@ class RSASignature:
                 messagebox.showwarning("Проверка на простоту", f"{param} — не является простым.")
         except ValueError:
             messagebox.showerror("Ошибка", "Введите корректное целое число.")
+
 
     def calculateR(self):
         try:
@@ -166,14 +220,18 @@ class RSASignature:
             if self.enabled.get() == 1:
                 self.DLabel.config(text=f"d = {d}")
 
-    def selectEncryptFile(self):
+    def selectFile(self, where):
         filepath = filedialog.askopenfilename(title="Выбрать файл")
         if not filepath:
             return
 
         self.File = filepath
-        self.plainText.configure(state='normal')
-        self.plainText.delete("1.0", tk.END)
+        if where == 0:
+            self.plainText.configure(state='normal')
+            self.plainText.delete("1.0", tk.END)
+        else:
+            self.plainTextSign.configure(state='normal')
+            self.plainTextSign.delete("1.0", tk.END)
 
         try:
             with open(filepath, 'rb') as f:
@@ -183,16 +241,37 @@ class RSASignature:
                     first_part = ' '.join(map(str, content[:150]))
                     last_part = ' '.join(map(str, content[-150:]))
                     display_content = f"{first_part}\n...\n{last_part}"
-                    self.plainText.insert(tk.END,
+                    if where == 0:
+                        self.plainText.insert(tk.END,
                                           f"Файл слишком большой. Показаны первые и последние 150 байт:\n{display_content}")
+                    else:
+                        self.plainTextSign.insert(tk.END,
+                                              f"Файл слишком большой. Показаны первые и последние 150 байт:\n{display_content}")
                 else:
-                    self.plainText.insert(tk.END, ' '.join(map(str, content)))
+                    if where == 0:
+                        self.plainText.insert(tk.END, ' '.join(map(str, content)))
+                    else:
+                        self.plainTextSign.insert(tk.END, ' '.join(map(str, content)))
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось прочитать файл:\n{e}")
         finally:
-            self.plainText.configure(state='disabled')
+            if where == 0:
+                self.plainText.configure(state='disabled')
+            else:
+                self.plainTextSign.configure(state='disabled')
 
+
+
+    def calculateHash(self, plaintext):
+        n = int(self.p.get()) * int(self.q.get())
+        h = 100
+        self.hashMessage = []
+        for byte in plaintext:
+            result = pow(h + byte, 2, n)
+            h = result
+            self.hashMessage.append(result)
+        return h
 
     def signFile(self):
         if not self.File:
@@ -201,23 +280,109 @@ class RSASignature:
         try:
             with open(self.File, 'rb') as f:
                 plaintext = f.read()
+            self.plaintext_bytes = plaintext
 
-            n = int(self.p.get()) * int(self.q.get())
+            pVal = int(self.p.get())
+            qVal = int(self.q.get())
+            n = pVal * qVal
+            rVal = int(self.r.get())
+
             h = 100
-            hashMessage = []
+            self.hashMessage = []
             for byte in plaintext:
                 result = pow(h + byte, 2, n)
-                h  = result
-                hashMessage.append(result)
-            self.h.set(h)
-            self.S = str(pow(h, int(self.d.get()), int(self.r.get())))
+                h = result
+                self.hashMessage.append(result)
+
+            self.S = pow(h, int(self.d.get()), rVal)
+            self.sig_bytes = self.S.to_bytes((rVal.bit_length() + 7) // 8, 'big')
+
+            self.h.set(str(h))
             self.ResultLabel.config(text=f"h(M) = {h}; S = {self.S}")
             self.hashText.configure(state='normal')
             self.hashText.delete("1.0", tk.END)
-            self.hashText.insert(tk.END, " ".join(map(str, hashMessage)))
+            self.hashText.insert(tk.END, " ".join(map(str, self.hashMessage)))
             self.hashText.configure(state='disabled')
+
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка: {e}")
+
+    def saveSigned(self):
+        if not hasattr(self, 'plaintext_bytes') or not hasattr(self, 'sig_bytes'):
+            messagebox.showwarning("Ошибка", "Сначала подпишите файл.")
+            return
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".bin",
+            filetypes=[("Signed files", "*.txt")]
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, 'wb') as f:
+                msgLen = len(self.plaintext_bytes)
+                signLen = len(self.sig_bytes)
+                f.write(msgLen.to_bytes(4, 'big'))
+                f.write(self.plaintext_bytes)
+                f.write(signLen.to_bytes(4, 'big'))
+                f.write(self.sig_bytes)
+
+            messagebox.showinfo("Успех", "Файл сохранён с подписью!")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка сохранения: {e}")
+
+    def checkFile(self):
+        if not self.File:
+            return
+
+        try:
+            with open(self.File, 'rb') as f:
+                data = f.read()
+
+            if len(data) < 8:
+                raise ValueError("Файл слишком короткий")
+
+            msgLen = int.from_bytes(data[0:4], 'big')
+            if msgLen + 8 > len(data):
+                raise ValueError("Некорректная длина сообщения")
+
+            msg_part = data[4:4 + msgLen]
+
+            signLen = int.from_bytes(data[4 + msgLen:8 + msgLen], 'big')
+            signPart = data[8 + msgLen:8 + msgLen + signLen]
+
+            if len(signPart) != signLen:
+                raise ValueError("Подпись повреждена или обрезана")
+
+            pVal = int(self.p.get())
+            qVal = int(self.q.get())
+            n = pVal * qVal
+            h = 100
+            resultHash = []
+            for byte in msg_part:
+                result = pow(h + byte, 2, n)
+                h = result
+                resultHash.append(result)
+
+            rVal = int(self.r.get())
+            eVal = int(self.e.get())
+            signature = int.from_bytes(signPart, 'big')
+            decrypted_hash = pow(signature, eVal, rVal)
+
+            self.resultTextSign.configure(state='normal')
+            self.resultTextSign.delete("1.0", tk.END)
+            self.resultTextSign.insert(tk.END, " ".join(map(str, resultHash)))
+            self.resultTextSign.configure(state='disabled')
+
+            if h == decrypted_hash:
+                messagebox.showinfo("Успех", "Подпись верна!")
+                self.ResultLabelSign.config(text=f"h(M) = {h}; Проверено: {decrypted_hash}")
+            else:
+                messagebox.showerror("Ошибка", f"Неверная подпись! Хеш: {h} ≠ Расшифровано: {decrypted_hash}")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка проверки: {e}")
 
 
 if __name__ == "__main__":
