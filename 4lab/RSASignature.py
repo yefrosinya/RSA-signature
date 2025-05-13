@@ -1,7 +1,7 @@
 import tkinter as tk
-from inspect import signature
 from tkinter import filedialog, messagebox, ttk
 import RSAAlgorithm
+import shutil
 
 class RSASignature:
     def __init__(self, root):
@@ -205,14 +205,14 @@ class RSASignature:
     def calculateD(self):
         e = int(self.e.get())
         euler = int(self.rEuler.get())
-        if 1 > e:
-            messagebox.showwarning("Ошибка", "e должно быть больше 1 < φ(r)")
+        if 1 >= e:
+            messagebox.showwarning("Ошибка", "e должно быть больше 1")
             self.e.set("")
         elif e > euler:
             messagebox.showwarning("Ошибка", "e должно быть меньше φ(r)")
             self.e.set("")
         elif RSAAlgorithm.greatestCommonDivisor(e, euler) != 1:
-            messagebox.showwarning("Ошибка", "НОД(e, φ(r)) = 1")
+            messagebox.showwarning("Ошибка", "НОД(e, φ(r)) != 1")
             self.e.set("")
         else:
             d = RSAAlgorithm.modinv(e, euler)
@@ -320,14 +320,10 @@ class RSASignature:
             return
 
         try:
-            with open(path, 'wb') as f:
-                msgLen = len(self.plaintext_bytes)
-                signLen = len(self.sig_bytes)
-                f.write(msgLen.to_bytes(4, 'big'))
-                f.write(self.plaintext_bytes)
-                f.write(signLen.to_bytes(4, 'big'))
-                f.write(self.sig_bytes)
-
+            shutil.copyfile(self.File, path)
+            with open(path, 'a', encoding='utf-8') as file:
+                file.write("\r\n\r\n\r\n\r\n")
+                file.write(str(self.S))
             messagebox.showinfo("Успех", "Файл сохранён с подписью!")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка сохранения: {e}")
@@ -338,36 +334,47 @@ class RSASignature:
 
         try:
             with open(self.File, 'rb') as f:
-                data = f.read()
+                content_bytes = f.read()
 
-            if len(data) < 8:
-                raise ValueError("Файл слишком короткий")
+            separator = b'\r\n\r\n\r\n\r\n'
+            sep_pos = content_bytes.find(separator)
 
-            msgLen = int.from_bytes(data[0:4], 'big')
-            if msgLen + 8 > len(data):
-                raise ValueError("Некорректная длина сообщения")
+            if sep_pos == -1:
+                for alt_sep in [b'\n\n', b'\r\r']:
+                    sep_pos = content_bytes.find(alt_sep)
+                    if sep_pos != -1:
+                        separator = alt_sep
+                        break
+                else:
+                    debug_content = content_bytes.decode('utf-8', errors='replace')[:100]
+                    raise ValueError(
+                        f"Не найден разделитель подписи. Начало файла: {debug_content}...\n"
+                        f"Ожидаемый разделитель: '\\r\\n\\r\\n\\r\\n\\r\\n'"
+                    )
 
-            msg_part = data[4:4 + msgLen]
+            original_data = content_bytes[:sep_pos].decode('utf-8')
+            signature_part = content_bytes[sep_pos + len(separator):]
 
-            signLen = int.from_bytes(data[4 + msgLen:8 + msgLen], 'big')
-            signPart = data[8 + msgLen:8 + msgLen + signLen]
+            try:
+                signature_str = signature_part.decode('utf-8').strip()
+                signature = int(signature_str)
+            except (UnicodeDecodeError, ValueError) as e:
+                raise ValueError(f"Некорректный формат подписи: {e}")
 
-            if len(signPart) != signLen:
-                raise ValueError("Подпись повреждена или обрезана")
+            try:
+                pVal = int(self.p.get())
+                qVal = int(self.q.get())
+                rVal = int(self.r.get())
+                eVal = int(self.e.get())
+            except ValueError:
+                raise ValueError("Некорректные значения параметров p, q, r или e")
 
-            pVal = int(self.p.get())
-            qVal = int(self.q.get())
-            n = pVal * qVal
             h = 100
             resultHash = []
-            for byte in msg_part:
-                result = pow(h + byte, 2, n)
+            for byte in original_data.encode('utf-8'):
+                result = pow(h + byte, 2, pVal * qVal)
                 h = result
                 resultHash.append(result)
-
-            rVal = int(self.r.get())
-            eVal = int(self.e.get())
-            signature = int.from_bytes(signPart, 'big')
             decrypted_hash = pow(signature, eVal, rVal)
 
             self.resultTextSign.configure(state='normal')
@@ -379,10 +386,11 @@ class RSASignature:
                 messagebox.showinfo("Успех", "Подпись верна!")
                 self.ResultLabelSign.config(text=f"h(M) = {h}; Проверено: {decrypted_hash}")
             else:
-                messagebox.showerror("Ошибка", f"Неверная подпись! Хеш: {h} ≠ Расшифровано: {decrypted_hash}")
+                messagebox.showerror("Ошибка", f"Неверная подпись! Хеш: {h} ≠ расшифровано: {decrypted_hash}")
+                self.ResultLabelSign.config(text=f"Хеш: {h} ≠ расшифровано: {decrypted_hash}")
 
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка проверки: {e}")
+            messagebox.showerror("Ошибка проверки", str(e))
 
 
 if __name__ == "__main__":
