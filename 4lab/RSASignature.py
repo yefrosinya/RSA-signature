@@ -294,7 +294,7 @@ class RSASignature:
                 h = result
                 self.hashMessage.append(result)
 
-            self.S = pow(h, int(self.d.get()), rVal)
+            self.S = pow(h, int(self.e.get()), rVal)
             self.sig_bytes = self.S.to_bytes((rVal.bit_length() + 7) // 8, 'big')
 
             self.h.set(str(h))
@@ -365,7 +365,7 @@ class RSASignature:
                 pVal = int(self.p.get())
                 qVal = int(self.q.get())
                 rVal = int(self.r.get())
-                eVal = int(self.e.get())
+                dVal = int(self.d.get())
             except ValueError:
                 raise ValueError("Некорректные значения параметров p, q, r или e")
 
@@ -375,7 +375,7 @@ class RSASignature:
                 result = pow(h + byte, 2, pVal * qVal)
                 h = result
                 resultHash.append(result)
-            decrypted_hash = pow(signature, eVal, rVal)
+            decrypted_hash = pow(signature, dVal, rVal)
 
             self.resultTextSign.configure(state='normal')
             self.resultTextSign.delete("1.0", tk.END)
